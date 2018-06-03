@@ -30,11 +30,15 @@ void add_history(char* unused) {}
 #include <editline/readline.h>
 #endif
 
+typedef union numerr {
+	long num;
+	int err;
+} NumErr;
+
 // A lispy value can either be a number or an error
 typedef struct {
 	int type;
-	long num;
-	int err;
+	NumErr data;
 } lval;
 
 // Possible lispy value types
@@ -115,17 +119,17 @@ lval eval_op(lval x, char* op, lval y) {
 	if (x.type == LVAL_ERR) { return x; }
 	if (y.type == LVAL_ERR) { return y; }
 
-	if (strcmp(op, "+")   == 0) { return lval_num(x.num + y.num);      }
-	if (strcmp(op, "-")   == 0) { return lval_num(x.num - y.num);      }
-	if (strcmp(op, "*")   == 0) { return lval_num(x.num * y.num);      }
+	if (strcmp(op, "+")   == 0) { return lval_num(x.data.num + y.data.num);      }
+	if (strcmp(op, "-")   == 0) { return lval_num(x.data.num - y.data.num);      }
+	if (strcmp(op, "*")   == 0) { return lval_num(x.data.num * y.data.num);      }
 	if (strcmp(op, "/")   == 0) {	
 		// If you try to divide by zero, report an error
-		return y.num == 0 ? lval_err(LERR_DIV_ZERO) : lval_num(x.num / y.num);
+		return y.data.num == 0 ? lval_err(LERR_DIV_ZERO) : lval_num(x.data.num / y.data.num);
   	}
-	if (strcmp(op, "min") == 0) { return lval_num(min(x.num, y.num));  }
-	if (strcmp(op, "max") == 0) { return lval_num(max(x.num, y.num));  }
-	if (strcmp(op, "^")   == 0) { return lval_num(pow(x.num, y.num));  }
-	if (strcmp(op, "%")   == 0) { return lval_num(fmod(x.num, y.num)); }
+	if (strcmp(op, "min") == 0) { return lval_num(min(x.data.num, y.data.num));  }
+	if (strcmp(op, "max") == 0) { return lval_num(max(x.data.num, y.data.num));  }
+	if (strcmp(op, "^")   == 0) { return lval_num(pow(x.data.num, y.data.num));  }
+	if (strcmp(op, "%")   == 0) { return lval_num(fmod(x.data.num, y.data.num)); }
 	
 	return lval_err(LERR_BAD_OP);
 }
@@ -134,7 +138,7 @@ lval eval_uni(lval x, char* op) {
 	// If it's an error, return it
 	if (x.type == LVAL_ERR) { return x; }
 
-	if (strcmp(op, "-") == 0) { return lval_num(-1 * x.num); }
+	if (strcmp(op, "-") == 0) { return lval_num(-1 * x.data.num); }
 
 	return lval_err(LERR_BAD_OP);
 }
@@ -187,32 +191,32 @@ long min(long x, long y) {
 lval lval_num(long x) {
 	lval v;
 	v.type = LVAL_NUM;
-	v.num = x;
+	v.data.num = x;
 	return v;
 }
 
 lval lval_err(int x) {
 	lval v;
 	v.type = LVAL_ERR;
-	v.err = x;
+	v.data.err = x;
 	return v;
 }
 
 void flval_print(FILE* stream, lval v) {
 	switch (v.type) {
 		// If it's a number, then print it out
-		case LVAL_NUM: fprintf(stream, "%li", v.num); break;
+		case LVAL_NUM: fprintf(stream, "%li", v.data.num); break;
 		
 		// If it's an error, indicate the error
 		case LVAL_ERR:
 			       fprintf(stream, "Error: ");
-			       if (v.err == LERR_DIV_ZERO) {
+			       if (v.data.err == LERR_DIV_ZERO) {
 				       fprintf(stream, "Division by zero");
 			       }
-			       if (v.err == LERR_BAD_OP) {
+			       if (v.data.err == LERR_BAD_OP) {
 				       fprintf(stream, "Invalid Operator");
 			       }
-			       if (v.err == LERR_BAD_NUM) {
+			       if (v.data.err == LERR_BAD_NUM) {
 				       fprintf(stream, "Invalid Number");
 			       }
 			       break;
