@@ -32,6 +32,7 @@ void add_history(char* unused) {}
 
 typedef union numerr {
 	long num;
+	double dec;
 	int err;
 } NumErr;
 
@@ -42,27 +43,33 @@ typedef struct {
 } lval;
 
 // Possible lispy value types
-enum { LVAL_NUM, LVAL_ERR };
+enum { LVAL_LONG, LVAL_DOUBLE, LVAL_ERR };
 
 // Possible Error Types
-enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
+enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM, LERR_BAD_ARG };
 
 
 lval eval_uni(lval x, char* op);
 lval eval_op(lval x, char* op, lval y);
 lval eval(mpc_ast_t* t);
-long max(long x, long y);
-long min(long x, long y);
-lval lval_num(long x);
+double max(double x, double y);
+double min(double x, double y);
+lval lval_long(long x);
+lval lval_double(double x);
 lval lval_err(int x);
 void flval_print(FILE* stream, lval v);
 void lval_print(lval v);
 void lval_println(lval v);
+size_t treeContentsLength(mpc_ast_t* t);
+char* concatTreeContents(mpc_ast_t* t);
+void concatNodeContents(char* stringToExtend, mpc_ast_t* t, size_t* currentLength);
 
 int main (int argc, char** argv) {
 
 	// Create some parsers
 	mpc_parser_t* Number = mpc_new("number");
+	mpc_parser_t* Long = mpc_new("long");
+	mpc_parser_t* Double = mpc_new("double");
 	mpc_parser_t* Operator = mpc_new("operator");
 	mpc_parser_t* Expr = mpc_new("expr");
 	mpc_parser_t* Lispy = mpc_new("lispy");
@@ -70,12 +77,14 @@ int main (int argc, char** argv) {
 	// Define them with the following language
 	mpca_lang(MPCA_LANG_DEFAULT,
 			"\
-			number   : /-?[0-9]+/;					\
-			operator : '+' | '-' | '*' | '/' | '%'                  \
-				 | '^' | \"min\" | \"max\"; 			\
-			expr     : <number> | '(' <operator> <expr>+ ')';	\
-			lispy    : /^/ <operator> <expr>+ /$/;			\
-			", Number, Operator, Expr, Lispy);
+			number   : /[0-9]+/;						\
+			long     : '-'? <number>;	               			\
+			double   : <long> '.' <number>;                                 \
+			operator : '+' | '-' | '*' | '/' | '%'                          \
+				 | '^' | \"min\" | \"max\"; 		        	\
+			expr     : (<double> | <long>) | '(' <operator> <expr>+ ')';	\
+			lispy    : /^/ <operator> <expr>+ /$/;		        	\
+			", Number, Long, Double, Operator, Expr, Lispy);
 
 
 
@@ -100,6 +109,7 @@ int main (int argc, char** argv) {
 			// Evualuate the expression and print its output
 			lval result = eval(r.output);
 			lval_println(result);
+			// mpc_ast_print(r.output);
 			mpc_ast_delete(r.output);
 		} else {
 			// Otherwise print the error
@@ -111,45 +121,101 @@ int main (int argc, char** argv) {
 		free(input);
 	}
 
-	mpc_cleanup(4, Number, Operator, Expr, Lispy);
+	mpc_cleanup(6, Number, Long, Double, Operator, Expr, Lispy);
 	return 0;
 }
 
 lval eval_op(lval x, char* op, lval y) {
 	if (x.type == LVAL_ERR) { return x; }
 	if (y.type == LVAL_ERR) { return y; }
+	
+	int resultType;
+	if (x.type == LVAL_LONG && y.type == LVAL_LONG) {
+		resultType = LVAL_LONG;
+	} else {
+		resultType = LVAL_DOUBLE;
+	}
 
-	if (strcmp(op, "+")   == 0) { return lval_num(x.data.num + y.data.num);      }
-	if (strcmp(op, "-")   == 0) { return lval_num(x.data.num - y.data.num);      }
-	if (strcmp(op, "*")   == 0) { return lval_num(x.data.num * y.data.num);      }
-	if (strcmp(op, "/")   == 0) {	
-		// If you try to divide by zero, report an error
-		return y.data.num == 0 ? lval_err(LERR_DIV_ZERO) : lval_num(x.data.num / y.data.num);
+	double xVal;
+	if (x.type == LVAL_LONG) {
+		xVal = x.data.num;
+	} else {
+		xVal = x.data.dec;
+	}
+
+	double yVal;
+	if (y.type == LVAL_LONG) {
+		yVal = y.data.num;
+	} else {
+		yVal = y.data.dec;
+	}
+
+	if (strcmp(op, "+")    == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(xVal + yVal) : lval_double(xVal + yVal);
+	}
+	if (strcmp(op, "-")   == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(xVal - yVal) : lval_double(xVal - yVal);   
+	}
+	if (strcmp(op, "*")   == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(xVal * yVal) : lval_double(xVal * yVal);;
+	}
+	if (strcmp(op, "/")   == 0) {
+		if (yVal == 0) { return lval_err(LERR_DIV_ZERO); }
+		return (resultType == LVAL_LONG) ? lval_long(xVal / yVal) : lval_double(xVal / yVal);
   	}
-	if (strcmp(op, "min") == 0) { return lval_num(min(x.data.num, y.data.num));  }
-	if (strcmp(op, "max") == 0) { return lval_num(max(x.data.num, y.data.num));  }
-	if (strcmp(op, "^")   == 0) { return lval_num(pow(x.data.num, y.data.num));  }
-	if (strcmp(op, "%")   == 0) { return lval_num(fmod(x.data.num, y.data.num)); }
+	if (strcmp(op, "min") == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(min(xVal, yVal)) : lval_double(min(xVal, yVal));
+	}
+	if (strcmp(op, "max") == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(max(xVal, yVal)) : lval_double(max(xVal, yVal));
+	}
+	if (strcmp(op, "^")   == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(pow(xVal, yVal)) : lval_double(pow(xVal, yVal));
+	}
+	if (strcmp(op, "%")   == 0) { 
+		return (resultType == LVAL_LONG) ? lval_long(fmod(xVal, yVal)) : lval_double(fmod(xVal, yVal));
+	}
 	
 	return lval_err(LERR_BAD_OP);
 }
 
 lval eval_uni(lval x, char* op) {
+
 	// If it's an error, return it
 	if (x.type == LVAL_ERR) { return x; }
 
-	if (strcmp(op, "-") == 0) { return lval_num(-1 * x.data.num); }
+	double xVal = (x.type == LVAL_LONG) ? x.data.num : x.data.dec;
+
+	if (strcmp(op, "-") == 0) { return (x.type == LVAL_LONG) ? lval_long(-1 * xVal) : lval_double(-1 * xVal); }
 
 	return lval_err(LERR_BAD_OP);
 }
 
 lval eval(mpc_ast_t* t) {
-	// If tagged as a number, return directly
-	if (strstr(t->tag, "number")) {
+	if (strstr(t->tag, "long")) {
+		// Grab the contents of all the nodes in the tree otherwise you might not get the string you expect
+		char* treeString = concatTreeContents(t);
+	
 		// Check to see if there's some error in conversion
 		errno = 0;
-		long x = strtol(t->contents, NULL, 10);
-		return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
+		long x = strtol(treeString, NULL, 10);
+
+		// Free the memory allocated in treestring since it's no longer needed
+		free(treeString);
+		
+		return errno != ERANGE ? lval_long(x) : lval_err(LERR_BAD_NUM);
+	}
+
+	if (strstr(t->tag, "double")) {
+		char* treeString = concatTreeContents(t);
+
+		// Check to see if there's some error in conversion
+		errno = 0;
+		double x = strtod(treeString, NULL);
+
+		free(treeString);
+
+		return errno != ERANGE ? lval_double(x) : lval_err(LERR_BAD_NUM);
 	}
 
 	// The operator is always the second child
@@ -174,24 +240,31 @@ lval eval(mpc_ast_t* t) {
 	return x;
 }
 
-long max(long x, long y) {
+double max(double x, double y) {
 	if (x > y) {
 		return x;
 	}
 	return y;
 }
 
-long min(long x, long y) {
+double min(double x, double y) {
 	if (x < y) {
 		return x;
 	}
 	return y;
 }
 
-lval lval_num(long x) {
+lval lval_long(long x) {
 	lval v;
-	v.type = LVAL_NUM;
+	v.type = LVAL_LONG;
 	v.data.num = x;
+	return v;
+}
+
+lval lval_double(double x) {
+	lval v;
+	v.type = LVAL_DOUBLE;
+	v.data.dec = x;
 	return v;
 }
 
@@ -204,9 +277,12 @@ lval lval_err(int x) {
 
 void flval_print(FILE* stream, lval v) {
 	switch (v.type) {
-		// If it's a number, then print it out
-		case LVAL_NUM: fprintf(stream, "%li", v.data.num); break;
+		// If it's an integer, then print it out
+		case LVAL_LONG: fprintf(stream, "%li", v.data.num); break;
 		
+		// Do the same for doubles
+		case LVAL_DOUBLE: fprintf(stream, "%lf", v.data.dec); break;
+
 		// If it's an error, indicate the error
 		case LVAL_ERR:
 			       fprintf(stream, "Error: ");
@@ -227,4 +303,44 @@ void lval_print(lval v) { flval_print(stdout, v); }
 
 void lval_println(lval v) { lval_print(v); putchar('\n'); }
 
+size_t treeContentsLength(mpc_ast_t* t) {
+	size_t result = strlen(t->contents);
+	if (t->children_num == 0) {
+		return result;
+	}
 
+	for (int i = 0; i < t->children_num; i++) {
+		result += treeContentsLength(t->children[i]);
+	}
+	return result;
+}
+
+char* concatTreeContents(mpc_ast_t* t) {
+	// Calculate size needed for the string
+	size_t totalLength = treeContentsLength(t);
+
+	// Allocate memory for string and null terminator
+	char* stringToExtend = malloc(totalLength + 1);
+	// [TODO] Write an allocation error handler
+
+	size_t currentLength = 0;
+	concatNodeContents(stringToExtend, t, &currentLength);
+
+	stringToExtend[totalLength] = '\0';
+
+	return stringToExtend;
+}
+
+void concatNodeContents(char* stringToExtend, mpc_ast_t* t, size_t* currentLength) {
+	size_t leafLength = strlen(t->contents);
+
+	memcpy(stringToExtend + (*currentLength), t->contents, leafLength);
+	*currentLength = *currentLength + leafLength;
+
+	if (t->children_num != 0) {
+		for (int i = 0; i < t->children_num; i++) {
+			concatNodeContents(stringToExtend, t->children[i], currentLength);
+		}
+	}
+
+}
