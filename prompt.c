@@ -30,36 +30,50 @@ void add_history(char* unused) {}
 #include <editline/readline.h>
 #endif
 
-typedef union numerr {
+typedef union typeval {
 	long num;
 	double dec;
-	int err;
-} NumErr;
+} TypeVal;
 
 // A lispy value can either be a number or an error
-typedef struct {
+typedef struct lval {
 	int type;
-	NumErr data;
+	TypeVal data;
+
+	// Error and symbols contain string data
+	char* err;
+	char* sym;
+
+	// Count and pointer to a list of lval*
+	int count;
+	struct lval** cell;
 } lval;
 
 // Possible lispy value types
-enum { LVAL_LONG, LVAL_DOUBLE, LVAL_ERR };
+enum { LVAL_ERR, LVAL_LONG, LVAL_DOUBLE, LVAL_SYM, LVAL_SEXPR };
 
-// Possible Error Types
-enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM, LERR_BAD_ARG };
-
-
-lval eval_uni(lval x, char* op);
-lval eval_op(lval x, char* op, lval y);
-lval eval(mpc_ast_t* t);
 double max(double x, double y);
 double min(double x, double y);
-lval lval_long(long x);
-lval lval_double(double x);
-lval lval_err(int x);
-void flval_print(FILE* stream, lval v);
-void lval_print(lval v);
-void lval_println(lval v);
+lval* lval_long(long x);
+lval* lval_double(double x);
+lval* lval_err(char* m);
+lval* lval_sym(char* s);
+lval* lval_sexpr(void);
+double lval_getData(lval* x);
+void lval_updateData(lval* x, double val, int type);
+void lval_del(lval* v);
+lval* lval_read_long(mpc_ast_t* t);
+lval* lval_read_double(mpc_ast_t* t);
+lval* lval_read(mpc_ast_t* t);
+lval* lval_add(lval* v, lval* x);
+lval* lval_eval_sexpr(lval* v);
+lval* lval_eval(lval* v);
+lval* lval_take(lval* v, int i);
+lval* lval_pop(lval* v, int i);
+lval* builtin_op(lval* v, char* op);
+void flval_print(FILE* stream, lval* v);
+void lval_print(lval* v);
+void lval_println(lval* v);
 size_t treeContentsLength(mpc_ast_t* t);
 char* concatTreeContents(mpc_ast_t* t);
 void concatNodeContents(char* stringToExtend, mpc_ast_t* t, size_t* currentLength);
@@ -70,21 +84,23 @@ int main (int argc, char** argv) {
 	mpc_parser_t* Number = mpc_new("number");
 	mpc_parser_t* Long = mpc_new("long");
 	mpc_parser_t* Double = mpc_new("double");
-	mpc_parser_t* Operator = mpc_new("operator");
+	mpc_parser_t* Symbol = mpc_new("symbol");
+	mpc_parser_t* Sexpr = mpc_new("sexpr");
 	mpc_parser_t* Expr = mpc_new("expr");
 	mpc_parser_t* Lispy = mpc_new("lispy");
 
 	// Define them with the following language
 	mpca_lang(MPCA_LANG_DEFAULT,
 			"\
-			number   : /[0-9]+/;						\
-			long     : '-'? <number>;	               			\
-			double   : <long> '.' <number>;                                 \
-			operator : '+' | '-' | '*' | '/' | '%'                          \
-				 | '^' | \"min\" | \"max\"; 		        	\
-			expr     : (<double> | <long>) | '(' <operator> <expr>+ ')';	\
-			lispy    : /^/ <operator> <expr>+ /$/;		        	\
-			", Number, Long, Double, Operator, Expr, Lispy);
+			number   : /[0-9]+/;						           \
+			long     : /-?[0-9]+/;	                    	       \
+			double   : <long> '.' <number>;                        \
+			symbol   : '+' | '-' | '*' | '/' | '%'                 \
+				     | '^' | \"min\" | \"max\"; 		           \
+			sexpr    :  '(' <expr>* ')';					       \
+			expr     : (<double> | <long>) | <symbol> | <sexpr>;   \
+			lispy    : /^/ <expr>* /$/;		        	           \
+			", Number, Long, Double, Symbol, Sexpr, Expr, Lispy);
 
 
 
@@ -103,13 +119,12 @@ int main (int argc, char** argv) {
 		// Attempt to parse the user input
 		mpc_result_t r;
 		if (mpc_parse("<stdin>", input, Lispy, &r)) {
-			// On success print the abstract syntax tree
-			//mpc_ast_print(r.output);
-			
 			// Evualuate the expression and print its output
-			lval result = eval(r.output);
+			// lval result = eval(r.output);
+			lval* result = lval_eval(lval_read(r.output));
 			lval_println(result);
-			// mpc_ast_print(r.output);
+			lval_del(result);
+			mpc_ast_print(r.output);
 			mpc_ast_delete(r.output);
 		} else {
 			// Otherwise print the error
@@ -121,124 +136,10 @@ int main (int argc, char** argv) {
 		free(input);
 	}
 
-	mpc_cleanup(6, Number, Long, Double, Operator, Expr, Lispy);
+	mpc_cleanup(7, Number, Long, Double, Symbol, Sexpr, Expr, Lispy);
 	return 0;
 }
 
-lval eval_op(lval x, char* op, lval y) {
-	if (x.type == LVAL_ERR) { return x; }
-	if (y.type == LVAL_ERR) { return y; }
-	
-	int resultType;
-	if (x.type == LVAL_LONG && y.type == LVAL_LONG) {
-		resultType = LVAL_LONG;
-	} else {
-		resultType = LVAL_DOUBLE;
-	}
-
-	double xVal;
-	if (x.type == LVAL_LONG) {
-		xVal = x.data.num;
-	} else {
-		xVal = x.data.dec;
-	}
-
-	double yVal;
-	if (y.type == LVAL_LONG) {
-		yVal = y.data.num;
-	} else {
-		yVal = y.data.dec;
-	}
-
-	if (strcmp(op, "+")    == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(xVal + yVal) : lval_double(xVal + yVal);
-	}
-	if (strcmp(op, "-")   == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(xVal - yVal) : lval_double(xVal - yVal);   
-	}
-	if (strcmp(op, "*")   == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(xVal * yVal) : lval_double(xVal * yVal);;
-	}
-	if (strcmp(op, "/")   == 0) {
-		if (yVal == 0) { return lval_err(LERR_DIV_ZERO); }
-		return (resultType == LVAL_LONG) ? lval_long(xVal / yVal) : lval_double(xVal / yVal);
-  	}
-	if (strcmp(op, "min") == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(min(xVal, yVal)) : lval_double(min(xVal, yVal));
-	}
-	if (strcmp(op, "max") == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(max(xVal, yVal)) : lval_double(max(xVal, yVal));
-	}
-	if (strcmp(op, "^")   == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(pow(xVal, yVal)) : lval_double(pow(xVal, yVal));
-	}
-	if (strcmp(op, "%")   == 0) { 
-		return (resultType == LVAL_LONG) ? lval_long(fmod(xVal, yVal)) : lval_double(fmod(xVal, yVal));
-	}
-	
-	return lval_err(LERR_BAD_OP);
-}
-
-lval eval_uni(lval x, char* op) {
-
-	// If it's an error, return it
-	if (x.type == LVAL_ERR) { return x; }
-
-	double xVal = (x.type == LVAL_LONG) ? x.data.num : x.data.dec;
-
-	if (strcmp(op, "-") == 0) { return (x.type == LVAL_LONG) ? lval_long(-1 * xVal) : lval_double(-1 * xVal); }
-
-	return lval_err(LERR_BAD_OP);
-}
-
-lval eval(mpc_ast_t* t) {
-	if (strstr(t->tag, "long")) {
-		// Grab the contents of all the nodes in the tree otherwise you might not get the string you expect
-		char* treeString = concatTreeContents(t);
-	
-		// Check to see if there's some error in conversion
-		errno = 0;
-		long x = strtol(treeString, NULL, 10);
-
-		// Free the memory allocated in treestring since it's no longer needed
-		free(treeString);
-		
-		return errno != ERANGE ? lval_long(x) : lval_err(LERR_BAD_NUM);
-	}
-
-	if (strstr(t->tag, "double")) {
-		char* treeString = concatTreeContents(t);
-
-		// Check to see if there's some error in conversion
-		errno = 0;
-		double x = strtod(treeString, NULL);
-
-		free(treeString);
-
-		return errno != ERANGE ? lval_double(x) : lval_err(LERR_BAD_NUM);
-	}
-
-	// The operator is always the second child
-	char* op = t->children[1]->contents;
-
-	// We store the third child in x
-	lval x = eval(t->children[2]);
-
-
-	// If there is only one operand, apply a uniary operation
-	if (t->children_num == 4) {
-		return eval_uni(x, op);
-	}
-
-	// Iterate over the remaining children and reduce
-	int i = 3;
-	while (strstr(t->children[i]->tag, "expr")) {
-		x = eval_op(x, op, eval(t->children[i]));
-		i++;
-	}
-
-	return x;
-}
 
 double max(double x, double y) {
 	if (x > y) {
@@ -254,54 +155,155 @@ double min(double x, double y) {
 	return y;
 }
 
-lval lval_long(long x) {
-	lval v;
-	v.type = LVAL_LONG;
-	v.data.num = x;
+lval* lval_long(long x) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_LONG;
+	v->data.num = x;
 	return v;
 }
 
-lval lval_double(double x) {
-	lval v;
-	v.type = LVAL_DOUBLE;
-	v.data.dec = x;
+lval* lval_double(double x) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_DOUBLE;
+	v->data.dec = x;
 	return v;
 }
 
-lval lval_err(int x) {
-	lval v;
-	v.type = LVAL_ERR;
-	v.data.err = x;
+lval* lval_err(char* m) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_ERR;
+	v->err = malloc(strlen(m) + 1);
+	strcpy(v->err, m);
 	return v;
 }
 
-void flval_print(FILE* stream, lval v) {
-	switch (v.type) {
-		// If it's an integer, then print it out
-		case LVAL_LONG: fprintf(stream, "%li", v.data.num); break;
+lval* lval_sym(char* s) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_SYM;
+	v->sym = malloc(strlen(s) + 1);
+	strcpy(v->sym, s);
+	return v;
+}
+
+lval* lval_sexpr(void) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_SEXPR;
+	v->count = 0;
+	v->cell = NULL;
+	return v;
+}
+
+void lval_del(lval* v) {
+	switch (v->type) {
+		case LVAL_LONG: break;
+		case LVAL_DOUBLE: break;
+
+		// Free the string data
+		case LVAL_ERR: free(v->err); break;
+		case LVAL_SYM: free(v->sym); break;
+
+		// Delete all elements inside SEXPR
+		case LVAL_SEXPR:
+			for (int i = 0; i < v->count; i++) {
+				lval_del(v->cell[i]);
+			}
+			// Also free the memory allocated to contain the pointers
+			free(v->cell);
+			break;
+	}
+
+	// // Free the memory allocated for the lval struct itself
+	free(v);
+}
+
+lval* lval_read_long(mpc_ast_t* t) {
+		// Grab the contents of all the nodes in the tree otherwise you might not get the string you expect
+		char* treeString = concatTreeContents(t);
+	
+		// Check to see if there's some error in conversion
+		errno = 0;
+		long x = strtol(treeString, NULL, 10);
+
+		// Free the memory allocated in treestring since it's no longer needed
+		free(treeString);
 		
-		// Do the same for doubles
-		case LVAL_DOUBLE: fprintf(stream, "%lf", v.data.dec); break;
+		return errno != ERANGE ? lval_long(x) : lval_err("Invalid Number");
+}
 
-		// If it's an error, indicate the error
-		case LVAL_ERR:
-			       fprintf(stream, "Error: ");
-			       if (v.data.err == LERR_DIV_ZERO) {
-				       fprintf(stream, "Division by zero");
-			       }
-			       if (v.data.err == LERR_BAD_OP) {
-				       fprintf(stream, "Invalid Operator");
-			       }
-			       if (v.data.err == LERR_BAD_NUM) {
-				       fprintf(stream, "Invalid Number");
-			       }
-			       break;
+lval* lval_read_double(mpc_ast_t* t) {
+		char* treeString = concatTreeContents(t);
+
+		// Check to see if there's some error in conversion
+		errno = 0;
+		double x = strtod(treeString, NULL);
+
+		free(treeString);
+
+		return errno != ERANGE ? lval_double(x) : lval_err("Invalid Number");
+}
+
+lval* lval_read(mpc_ast_t* t) {
+	// If symbol or number, convert
+	if (strstr(t->tag, "long")) { return lval_read_long(t); }
+	if (strstr(t->tag, "double")) { return lval_read_double(t); }
+	if (strstr(t->tag, "symbol")) { return lval_sym(t->contents); }
+
+	// If root or sexpr, then create an empty list
+	lval* x = NULL;
+	if (strcmp(t->tag, ">") == 0 || strstr(t->tag, "sexpr")) { 
+		x = lval_sexpr(); 
+	}
+
+	// Fill the list with any valid expression contained
+	for (int i = 0; i < t->children_num; i++) {
+		if (strcmp(t->children[i]->contents, "(") == 0) { continue; }
+		if (strcmp(t->children[i]->contents, ")") == 0) { continue; }
+		if (strcmp(t->children[i]->tag, "regex") == 0) { continue; }
+		x = lval_add(x, lval_read(t->children[i]));
+	}
+
+	return x;
+}
+
+lval* lval_add(lval* v, lval* x) {
+	v->count++;
+	v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+	v->cell[v->count - 1] = x;
+	return v;
+}
+
+void flval_expr_print(FILE* stream, lval* v, char open, char close) {
+	putchar(open);
+	for (int i = 0; i < v->count; i++) {
+		// Print value contained within
+		flval_print(stream, v->cell[i]);
+
+		// Put a trailing whitespace unless its the last element
+		if (i != (v->count - 1)) {
+			putchar(' ');
+		}
+	}
+	putchar(close);
+}
+
+void flval_print(FILE* stream, lval* v) {
+	switch (v->type) {
+		// If it's an integer, then print it out
+		case LVAL_LONG: fprintf(stream, "%li", v->data.num); break;
+		
+		case LVAL_DOUBLE: fprintf(stream, "%lf", v->data.dec); break;
+
+		case LVAL_ERR: fprintf(stream, "Error: %s", v->err); break;
+
+		case LVAL_SYM: fprintf(stream, "%s", v->sym); break;
+
+		case LVAL_SEXPR: flval_expr_print(stream, v, '(', ')'); break;
 	}
 }
 
-void lval_print(lval v) { flval_print(stdout, v); }
+void lval_print(lval* v) { flval_print(stdout, v); }
 
-void lval_println(lval v) { lval_print(v); putchar('\n'); }
+void lval_println(lval* v) { lval_print(v); putchar('\n'); }
 
 size_t treeContentsLength(mpc_ast_t* t) {
 	size_t result = strlen(t->contents);
@@ -344,3 +346,119 @@ void concatNodeContents(char* stringToExtend, mpc_ast_t* t, size_t* currentLengt
 	}
 
 }
+
+
+lval* lval_eval_sexpr(lval* v) {
+	// Evaluate children
+	for (int i = 0; i < v->count; i++) {
+		v->cell[i] = lval_eval(v->cell[i]);
+	}
+
+	// Error checking [If there's an error, return it]
+	for (int i = 0; i < v->count; i++) {
+		if (v->cell[i]->type == LVAL_ERR) { return lval_take(v, i); }
+	}
+
+	// Empty expression
+	if (v->count == 0) { return v; }
+
+	// Single expression
+	if (v->count == 1) { return lval_take(v, 0); }
+
+	// Ensure first element is a symbol otherwise
+	lval* f = lval_pop(v, 0);
+	if (f->type != LVAL_SYM) {
+		printf("The type of f is %d\n", f->type);
+		lval_del(f); lval_del(v);
+		return lval_err("S-expression does not start with symbol");
+	}
+
+	lval* result = builtin_op(v, f->sym);
+	lval_del(f);
+	return result;
+}
+
+lval* lval_eval(lval* v) {
+	// Evauluate sexpressions
+	if (v->type == LVAL_SEXPR) { return lval_eval_sexpr(v); }
+
+	// All other lval types remail the same
+	return v;
+}
+
+lval* lval_pop(lval* v, int i) {
+	// Find the item at i
+	lval* x = v->cell[i];
+
+	// Shift the memory after the item i over the top
+	memmove(&v->cell[i], &v->cell[i + 1], sizeof(lval*) * (v->count - i - 1));
+
+	// Decrease the count of items in the list
+	v->count--;
+
+	// Reallocate the memory used
+	v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+	return x;
+}
+
+lval* lval_take(lval* v, int i) {
+	lval* x = lval_pop(v, i);
+	lval_del(v);
+	return x;
+}
+
+lval* builtin_op(lval* a, char* op) {
+	// Ensure all arguments are numbers
+	for (int i = 0; i < a->count; i++) {
+		if (a->cell[i]->type != LVAL_LONG && a->cell[i]->type != LVAL_DOUBLE) {
+			lval_del(a);
+			return lval_err("Cannot run operation on non-number");
+		}
+	}
+
+	// Pop the first element
+	lval* x = lval_pop(a, 0);
+
+	// If there are no other arguments then perform unary operation
+	if (a->count == 0) {
+		if (strcmp(op, "-") == 0) { lval_updateData(x, -1 * lval_getData(x), x->type); }
+	}
+
+	while (a->count > 0) {
+		// Pop the next element
+		lval* y = lval_pop(a, 0);
+		int resultType = (x->type == LVAL_LONG && y->type == LVAL_LONG) ? LVAL_LONG : LVAL_DOUBLE;
+
+		if (strcmp(op, "+")    == 0) { lval_updateData(x, lval_getData(x) + lval_getData(y), resultType); }
+		if (strcmp(op, "-")   == 0) {  lval_updateData(x, lval_getData(x) - lval_getData(y), resultType); }
+		if (strcmp(op, "*")   == 0) {  lval_updateData(x, lval_getData(x) * lval_getData(y), resultType); }
+		if (strcmp(op, "/")   == 0) { 
+			if (lval_getData(y) == 0) { return lval_err("Divide by Zero"); }
+			 lval_updateData(x, lval_getData(x) / lval_getData(y), resultType); 
+		}
+		if (strcmp(op, "min") == 0) { lval_updateData(x, min(lval_getData(x), lval_getData(y)), resultType); }
+		if (strcmp(op, "max") == 0) { lval_updateData(x, max(lval_getData(x), lval_getData(y)), resultType); }
+		if (strcmp(op, "^")   == 0) { lval_updateData(x, pow(lval_getData(x), lval_getData(y)), resultType); }
+		if (strcmp(op, "%")   == 0) { lval_updateData(x, fmod(lval_getData(x), lval_getData(y)), resultType); }
+		lval_del(y);
+	}
+
+	lval_del(a);
+	return x;
+}
+
+
+double lval_getData(lval* x) {
+	if (x->type == LVAL_LONG) {
+		return x->data.num;
+	} 
+	return x->data.dec;
+} 
+
+void lval_updateData(lval* x, double val, int type) {
+	if (type == LVAL_LONG) {
+		x->data.num = val;
+		return;
+	} 
+	x->data.dec = val;
+} 
