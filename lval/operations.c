@@ -12,14 +12,6 @@ lval* lval_sym(char* s) {
 	return v;
 }
 
-lval* lval_err(char* m) {
-	lval* v = (lval *) malloc(sizeof(lval));
-	v->type = LVAL_ERR;
-	v->err = (char *) malloc(strlen(m) + 1);
-	strcpy(v->err, m);
-	return v;
-}
-
 lval* lval_read(mpc_ast_t* t) {
 	// If symbol or number, convert
 	if (strstr(t->tag, "long")) { return lval_read_long(t); }

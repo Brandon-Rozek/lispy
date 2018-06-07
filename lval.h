@@ -4,6 +4,8 @@
 
 // Bring in the lval struct and lispy types
 #include "lval/base.h"
+// Error functionality
+#include "lval/error.h"
 // Adds functionality for the numeric data type
 #include "lval/numbers.h"
 // Adds functionality for the expression (Q or S) data type

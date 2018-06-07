@@ -4,9 +4,8 @@
 #include "../mpc.h"
 #include "base.h"
 
-// Constructor for other data types
+// Constructor for symbol data type
 lval* lval_sym(char* s);
-lval* lval_err(char* m);
 
 /*
     Methods to read (parse AST), evaluate, 

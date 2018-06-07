@@ -2,8 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "operations.h"
 #include "expressions.h"
+#include "operations.h"
+#include "error.h"
 
 // Think about where to put this declaration later
 lval* builtin_op(lval* v, char* op);

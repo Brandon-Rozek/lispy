@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "numbers.h"
+#include "error.h"
 
 lval* lval_long(long x) {
 	lval* v = (lval *) malloc(sizeof(lval));

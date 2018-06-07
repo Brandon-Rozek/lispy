@@ -53,8 +53,9 @@ int main (int argc, char** argv) {
 			"number   : /[0-9]+/;						                     "
 			"long     : /-?[0-9]+/;	                    	                 "
 			"double   : <long> '.' <number>;                                 "
-			"symbol   : '+' | '-' | '*' | '/' | '%'                \
-				     | '^' | \"min\" | \"max\"; 		                     "
+			"symbol   : '+' | '-' | '*' | '/' | '%'                          \
+				      | '^' | \"min\" | \"max\" 	                         \
+					  |	\"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" "
 		
 			"sexpr    : '(' <expr>* ')';					                 "
 			"qexpr    : '{' <expr>* '}';                                     "
