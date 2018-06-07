@@ -50,7 +50,7 @@ typedef struct lval {
 } lval;
 
 // Possible lispy value types
-enum { LVAL_ERR, LVAL_LONG, LVAL_DOUBLE, LVAL_SYM, LVAL_SEXPR };
+enum { LVAL_ERR, LVAL_LONG, LVAL_DOUBLE, LVAL_SYM, LVAL_SEXPR, LVAL_QEXPR };
 
 double max(double x, double y);
 double min(double x, double y);
@@ -86,22 +86,23 @@ int main (int argc, char** argv) {
 	mpc_parser_t* Double = mpc_new("double");
 	mpc_parser_t* Symbol = mpc_new("symbol");
 	mpc_parser_t* Sexpr = mpc_new("sexpr");
+	mpc_parser_t* Qexpr = mpc_new("qexpr");
 	mpc_parser_t* Expr = mpc_new("expr");
 	mpc_parser_t* Lispy = mpc_new("lispy");
 
 	// Define them with the following language
 	mpca_lang(MPCA_LANG_DEFAULT,
-			"\
-			number   : /[0-9]+/;						           \
-			long     : /-?[0-9]+/;	                    	       \
-			double   : <long> '.' <number>;                        \
-			symbol   : '+' | '-' | '*' | '/' | '%'                 \
-				     | '^' | \"min\" | \"max\"; 		           \
-			sexpr    :  '(' <expr>* ')';					       \
-			expr     : (<double> | <long>) | <symbol> | <sexpr>;   \
-			lispy    : /^/ <expr>* /$/;		        	           \
-			", Number, Long, Double, Symbol, Sexpr, Expr, Lispy);
-
+			"number   : /[0-9]+/;						                     "
+			"long     : /-?[0-9]+/;	                    	                 "
+			"double   : <long> '.' <number>;                                 "
+			"symbol   : '+' | '-' | '*' | '/' | '%'                \
+				     | '^' | \"min\" | \"max\"; 		                     "
+		
+			"sexpr    : '(' <expr>* ')';					                 "
+			"qexpr    : '{' <expr>* '}';                                     "
+			"expr     : (<double> | <long>) | <symbol> | <sexpr> | <qexpr>;  "
+			"lispy    : /^/ <expr>* /$/;	        	                     "
+			, Number, Long, Double, Symbol, Sexpr, Qexpr, Expr, Lispy);
 
 
 	// Print Version and Exit Information
@@ -124,7 +125,7 @@ int main (int argc, char** argv) {
 			lval* result = lval_eval(lval_read(r.output));
 			lval_println(result);
 			lval_del(result);
-			mpc_ast_print(r.output);
+			// mpc_ast_print(r.output);
 			mpc_ast_delete(r.output);
 		} else {
 			// Otherwise print the error
@@ -136,7 +137,7 @@ int main (int argc, char** argv) {
 		free(input);
 	}
 
-	mpc_cleanup(7, Number, Long, Double, Symbol, Sexpr, Expr, Lispy);
+	mpc_cleanup(8, Number, Long, Double, Symbol, Sexpr, Qexpr, Expr, Lispy);
 	return 0;
 }
 
@@ -193,6 +194,13 @@ lval* lval_sexpr(void) {
 	return v;
 }
 
+lval* lval_qexpr(void) {
+	lval* v = malloc(sizeof(lval));
+	v->type = LVAL_QEXPR;
+	v->count = 0;
+	v->cell = NULL;
+	return v;
+}
 void lval_del(lval* v) {
 	switch (v->type) {
 		case LVAL_LONG: break;
@@ -202,7 +210,8 @@ void lval_del(lval* v) {
 		case LVAL_ERR: free(v->err); break;
 		case LVAL_SYM: free(v->sym); break;
 
-		// Delete all elements inside SEXPR
+		// Delete all elements inside SEXPR or QEXPR
+		case LVAL_QEXPR:
 		case LVAL_SEXPR:
 			for (int i = 0; i < v->count; i++) {
 				lval_del(v->cell[i]);
@@ -210,6 +219,7 @@ void lval_del(lval* v) {
 			// Also free the memory allocated to contain the pointers
 			free(v->cell);
 			break;
+
 	}
 
 	// // Free the memory allocated for the lval struct itself
@@ -254,10 +264,16 @@ lval* lval_read(mpc_ast_t* t) {
 		x = lval_sexpr(); 
 	}
 
+	if (strstr(t->tag, "qexpr")) {
+		x = lval_qexpr();
+	}
+
 	// Fill the list with any valid expression contained
 	for (int i = 0; i < t->children_num; i++) {
 		if (strcmp(t->children[i]->contents, "(") == 0) { continue; }
 		if (strcmp(t->children[i]->contents, ")") == 0) { continue; }
+		if (strcmp(t->children[i]->contents, "{") == 0) { continue; }
+		if (strcmp(t->children[i]->contents, "}") == 0) { continue; }
 		if (strcmp(t->children[i]->tag, "regex") == 0) { continue; }
 		x = lval_add(x, lval_read(t->children[i]));
 	}
@@ -298,6 +314,8 @@ void flval_print(FILE* stream, lval* v) {
 		case LVAL_SYM: fprintf(stream, "%s", v->sym); break;
 
 		case LVAL_SEXPR: flval_expr_print(stream, v, '(', ')'); break;
+
+		case LVAL_QEXPR: flval_expr_print(stream, v, '{', '}'); break;
 	}
 }
 
