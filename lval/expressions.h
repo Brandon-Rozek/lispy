@@ -36,6 +36,6 @@ lval* builtin_list(lval* a);
 lval* builtin_eval(lval* a);
 lval* lval_join(lval* x, lval* y);
 lval* builtin_join(lval* a);
-
+lval* builtin_len(lval* a);
 
 #endif

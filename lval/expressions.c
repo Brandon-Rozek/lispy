@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "expressions.h"
+#include "numbers.h"
 #include "operations.h"
 #include "error.h"
 
@@ -140,6 +141,14 @@ lval* builtin_join(lval* a) {
 		x = lval_join(x, lval_pop(a, 0));
 	}
 
+	lval_del(a);
+	return x;
+}
+
+lval* builtin_len(lval* a) {
+	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'len' passed incorrect type")
+	lval* x = lval_long(a->cell[0]->count);
+	
 	lval_del(a);
 	return x;
 }
