@@ -85,15 +85,28 @@ lval* lval_eval_sexpr(lval* v) {
 }
 
 
-lval* builtin_head(lval* a) {
+lval* builtin_headn(lval* a, int n) {
 	LASSERT(a, a->count == 1, "Function 'head' passed too many arguments")
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type")
 	LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}")
 
 	lval* v = lval_take(a, 0);
-	while (v->count > 1) { lval_del(lval_pop(v, 1)); }
+	while (v->count > n) { lval_del(lval_pop(v, v->count - 1)); }
 	return v;
 }
+
+lval* builtin_head(lval* a) {
+	return builtin_headn(a, 1);
+}
+
+lval* builtin_init(lval* a) {
+	LASSERT(a, a->count == 1, "Function 'init' passed too many arguments")
+	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'init' passed incorrect type")
+	LASSERT(a, a->cell[0]->count != 0, "Function 'init' passed {}")
+
+	return builtin_headn(a, a->cell[0]->count - 1);
+}
+
 
 lval* builtin_tail(lval* a) {
 	LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments")
