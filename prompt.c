@@ -55,7 +55,7 @@ int main (int argc, char** argv) {
 			"double   : <long> '.' <number>;                                 "
 			"symbol   : '+' | '-' | '*' | '/' | '%'                          \
 				      | '^' | \"min\" | \"max\" 	                         \
-					  |	\"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" "
+					  |	\"list\" | \"head\" | \"tail\" | \"join\" | \"eval\";"
 		
 			"sexpr    : '(' <expr>* ')';					                 "
 			"qexpr    : '{' <expr>* '}';                                     "
@@ -158,4 +158,18 @@ lval* builtin_op(lval* a, char* op) {
 
 	lval_del(a);
 	return x;
+}
+
+lval* builtin(lval* a, char* func) {
+	if (strcmp("list", func) == 0) { return builtin_list(a); }
+	if (strcmp("head", func) == 0) { return builtin_head(a); }
+	if (strcmp("tail", func) == 0) { return builtin_tail(a); }
+	if (strcmp("join", func) == 0) { return builtin_join(a); }
+	if (strcmp("eval", func) == 0) { return builtin_eval(a); }
+	if (strstr("+-/*^%", func)) { return builtin_op(a, func); }
+	if (strcmp("min", func) == 0) { return builtin_op(a, func); }
+	if (strcmp("max", func) == 0) { return builtin_op(a, func); }
+
+	lval_del(a);
+	return lval_err("Unknown Function!");
 }
