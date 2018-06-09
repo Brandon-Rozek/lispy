@@ -54,6 +54,7 @@ void lval_del(lval* v) {
 	switch (v->type) {
 		case LVAL_LONG: break;
 		case LVAL_DOUBLE: break;
+		case LVAL_FUN: break;
 
 		// Free the string data
 		case LVAL_ERR: free(v->err); break;
@@ -73,6 +74,38 @@ void lval_del(lval* v) {
 
 	// // Free the memory allocated for the lval struct itself
 	free(v);
+}
+
+lval* lval_copy(lval* v) {
+	lval* x = (lval*) malloc(sizeof(lval));
+	x->type = v->type;
+
+	switch (v->type)  {
+		// Copy numbers and functions directly
+		case LVAL_LONG: x->data.num = v->data.num; break;
+		case LVAL_DOUBLE: x->data.dec = v->data.dec; break;
+		case LVAL_FUN: x->fun = v->fun; break;
+
+		// Copy strings using malloc and strcpy
+		case LVAL_ERR:
+			x->err = (char*) malloc(strlen(v->err) + 1);
+			strcpy(x->err, v->err); break;
+		case LVAL_SYM:
+			x->sym = (char*) malloc(strlen(v->sym) + 1);
+			strcpy(x->sym, v->sym); break;
+		
+		// Copy lists by copying each sub-expression
+		case LVAL_SEXPR:
+		case LVAL_QEXPR:
+			x->count = v->count;
+			x->cell = (lval**) malloc(sizeof(lval*) * x->count);
+			for (int i = 0; i < x->count; i++) {
+				x->cell[i] = lval_copy(v->cell[i]);
+			}
+			break;
+	}
+
+	return x;
 }
 
 

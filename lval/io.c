@@ -29,6 +29,8 @@ void flval_print(FILE* stream, lval* v) {
 		case LVAL_SEXPR: flval_expr_print(stream, v, '(', ')'); break;
 
 		case LVAL_QEXPR: flval_expr_print(stream, v, '{', '}'); break;
+
+		case LVAL_FUN: fprintf(stream, "<function>"); break;
 	}
 }
 

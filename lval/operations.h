@@ -8,11 +8,12 @@
 lval* lval_sym(char* s);
 
 /*
-    Methods to read (parse AST), evaluate, 
-    and delete lval structures
+    Methods to read (parse AST), evaluate,
+    copy, and delete lval structures
 */
 lval* lval_read(mpc_ast_t* t);
 lval* lval_eval(lval* v);
 void lval_del(lval* v);
+lval* lval_copy(lval* v);
 
 #endif

@@ -14,5 +14,7 @@
 #include "lval/operations.h"
 // Add the ability to print out lval structures
 #include "lval/io.h"
+// Add environments, variables, and functions
+#include "lval/environment.h"
 
 #endif
