@@ -4,6 +4,8 @@
 #include "expressions.h"
 #include "operations.h"
 
+lval* builtin_op(lenv* e, lval* v, char* sym);
+
 lval* lval_sym(char* s) {
 	lval* v = (lval *) malloc(sizeof(lval));
 	v->type = LVAL_SYM;
@@ -42,9 +44,15 @@ lval* lval_read(mpc_ast_t* t) {
 }
 
 
-lval* lval_eval(lval* v) {
+lval* lval_eval(lenv* e, lval* v) {
+	if (v->type == LVAL_SYM) {
+		lval* x = lenv_get(e, v);
+		lval_del(v);
+		return x;
+	}
+
 	// Evauluate sexpressions
-	if (v->type == LVAL_SEXPR) { return lval_eval_sexpr(v); }
+	if (v->type == LVAL_SEXPR) { return lval_eval_sexpr(e, v); }
 
 	// All other lval types remail the same
 	return v;
@@ -108,4 +116,34 @@ lval* lval_copy(lval* v) {
 	return x;
 }
 
+lval* builtin_add(lenv* e, lval* a) {
+  return builtin_op(e, a, "+");
+}
 
+lval* builtin_sub(lenv* e, lval* a) {
+  return builtin_op(e, a, "-");
+}
+
+lval* builtin_mul(lenv* e, lval* a) {
+  return builtin_op(e, a, "*");
+}
+
+lval* builtin_div(lenv* e, lval* a) {
+  return builtin_op(e, a, "/");
+}
+
+lval* builtin_pow(lenv* e, lval* a) {
+  return builtin_op(e, a, "^");
+}
+
+lval* builtin_mod(lenv* e, lval* a) {
+  return builtin_op(e, a, "%");
+}
+
+lval* builtin_min(lenv* e, lval* a) {
+  return builtin_op(e, a, "min");
+}
+
+lval* builtin_max(lenv* e, lval* a) {
+  return builtin_op(e, a, "max");
+}

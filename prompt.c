@@ -33,7 +33,7 @@ void add_history(char* unused) {}
 
 double max(double x, double y);
 double min(double x, double y);
-lval* builtin_op(lval* v, char* op);
+lval* builtin_op(lenv* e, lval* v, char* op);
 
 
 int main (int argc, char** argv) {
@@ -65,6 +65,9 @@ int main (int argc, char** argv) {
 	puts("Lispy Version 0.0.0.0.1");
 	puts("Press Ctrl+c to Exit\n");
 
+	lenv* e = lenv_new();
+	lenv_add_builtins(e);
+
 	// In a never ending loop
 	while (1) {
 		// Output prompt and query
@@ -78,7 +81,7 @@ int main (int argc, char** argv) {
 		if (mpc_parse("<stdin>", input, Lispy, &r)) {
 			// Evualuate the expression and print its output
 			// lval result = eval(r.output);
-			lval* result = lval_eval(lval_read(r.output));
+			lval* result = lval_eval(e, lval_read(r.output));
 			lval_println(result);
 			lval_del(result);
 			// mpc_ast_print(r.output);
@@ -112,12 +115,7 @@ double min(double x, double y) {
 	return y;
 }
 
-
-
-
-
-
-lval* builtin_op(lval* a, char* op) {
+lval* builtin_op(lenv* e, lval* a, char* op) {
 	// Ensure all arguments are numbers
 	for (int i = 0; i < a->count; i++) {
 		if (a->cell[i]->type != LVAL_LONG && a->cell[i]->type != LVAL_DOUBLE) {
@@ -157,18 +155,18 @@ lval* builtin_op(lval* a, char* op) {
 	return x;
 }
 
-lval* builtin(lval* a, char* func) {
-	if (strcmp("list", func) == 0) { return builtin_list(a); }
-	if (strcmp("head", func) == 0) { return builtin_head(a); }
-	if (strcmp("tail", func) == 0) { return builtin_tail(a); }
-	if (strcmp("join", func) == 0) { return builtin_join(a); }
-	if (strcmp("eval", func) == 0) { return builtin_eval(a); }
-	if (strcmp("len", func) == 0) { return builtin_len(a); }
-	if (strcmp("init", func) == 0) { return builtin_init(a); }
-	if (strcmp("cons", func) == 0) { return builtin_cons(a); }
-	if (strstr("+-/*^%", func)) { return builtin_op(a, func); }
-	if (strcmp("min", func) == 0) { return builtin_op(a, func); }
-	if (strcmp("max", func) == 0) { return builtin_op(a, func); }
+lval* builtin(lenv* e, lval* a, char* func) {
+	if (strcmp("list", func) == 0) { return builtin_list(e, a); }
+	if (strcmp("head", func) == 0) { return builtin_head(e, a); }
+	if (strcmp("tail", func) == 0) { return builtin_tail(e, a); }
+	if (strcmp("join", func) == 0) { return builtin_join(e, a); }
+	if (strcmp("eval", func) == 0) { return builtin_eval(e, a); }
+	if (strcmp("len", func) == 0) { return builtin_len(e, a); }
+	if (strcmp("init", func) == 0) { return builtin_init(e, a); }
+	if (strcmp("cons", func) == 0) { return builtin_cons(e, a); }
+	if (strstr("+-/*^%", func)) { return builtin_op(e, a, func); }
+	if (strcmp("min", func) == 0) { return builtin_op(e, a, func); }
+	if (strcmp("max", func) == 0) { return builtin_op(e, a, func); }
 
 	lval_del(a);
 	return lval_err("Unknown Function!");

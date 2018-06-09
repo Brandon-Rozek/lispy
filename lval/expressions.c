@@ -54,10 +54,10 @@ lval* lval_take(lval* v, int i) {
 	return x;
 }
 
-lval* lval_eval_sexpr(lval* v) {
+lval* lval_eval_sexpr(lenv* e, lval* v) {
 	// Evaluate children
 	for (int i = 0; i < v->count; i++) {
-		v->cell[i] = lval_eval(v->cell[i]);
+		v->cell[i] = lval_eval(e, v->cell[i]);
 	}
 
 	// Error checking [If there's an error, return it]
@@ -73,19 +73,19 @@ lval* lval_eval_sexpr(lval* v) {
 
 	// Ensure first element is a symbol otherwise
 	lval* f = lval_pop(v, 0);
-	if (f->type != LVAL_SYM) {
-		printf("The type of f is %d\n", f->type);
+	if (f->type != LVAL_FUN) {
 		lval_del(f); lval_del(v);
-		return lval_err("S-expression does not start with symbol");
+		return lval_err("S-expression does not start with function");
 	}
 
-	lval* result = builtin(v, f->sym);
+	// If so call the function and return result
+	lval* result = f->fun(e, v);
 	lval_del(f);
 	return result;
 }
 
 
-lval* builtin_headn(lval* a, int n) {
+lval* builtin_headn(lenv* e, lval* a, int n) {
 	LASSERT(a, a->count == 1, "Function 'head' passed too many arguments")
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type")
 	LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}")
@@ -95,20 +95,20 @@ lval* builtin_headn(lval* a, int n) {
 	return v;
 }
 
-lval* builtin_head(lval* a) {
-	return builtin_headn(a, 1);
+lval* builtin_head(lenv* e, lval* a) {
+	return builtin_headn(e, a, 1);
 }
 
-lval* builtin_init(lval* a) {
+lval* builtin_init(lenv* e, lval* a) {
 	LASSERT(a, a->count == 1, "Function 'init' passed too many arguments")
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'init' passed incorrect type")
 	LASSERT(a, a->cell[0]->count != 0, "Function 'init' passed {}")
 
-	return builtin_headn(a, a->cell[0]->count - 1);
+	return builtin_headn(e, a, a->cell[0]->count - 1);
 }
 
 
-lval* builtin_tail(lval* a) {
+lval* builtin_tail(lenv* e, lval* a) {
 	LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments")
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'tail' passed incorrect type")
 	LASSERT(a, a->cell[0]->count != 0, "Function 'tail' passed {}")
@@ -118,21 +118,21 @@ lval* builtin_tail(lval* a) {
 	return v;
 }
 
-lval* builtin_list(lval* a) {
+lval* builtin_list(lenv* e, lval* a) {
 	a->type = LVAL_QEXPR;
 	return a;
 }
 
-lval* builtin_eval(lval* a) {
+lval* builtin_eval(lenv* e, lval* a) {
 	LASSERT(a, a->count == 1, "Function 'eval' passed too many arguments")
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'eval' passed incorrect type")
 
 	lval* x = lval_take(a, 0);
 	x->type = LVAL_SEXPR;
-	return lval_eval(x);
+	return lval_eval(e, x);
 }
 
-lval* lval_join(lval* x, lval* y) {
+lval* lval_join(lenv* e, lval* x, lval* y) {
 	// For each cell in 'y' add it to 'x'
 	while (y->count) {
 		x = lval_add(x, lval_pop(y, 0));
@@ -143,7 +143,7 @@ lval* lval_join(lval* x, lval* y) {
 	return x;
 }
 
-lval* builtin_join(lval* a) {
+lval* builtin_join(lenv* e, lval* a) {
 	for (int i = 0 ; i < a->count; i++) {
 		LASSERT(a, a->cell[i]->type == LVAL_QEXPR, "Function 'join' passed incorrect type")
 	}
@@ -151,14 +151,14 @@ lval* builtin_join(lval* a) {
 	lval* x = lval_pop(a, 0);
 	
 	while (a->count) {
-		x = lval_join(x, lval_pop(a, 0));
+		x = lval_join(e, x, lval_pop(a, 0));
 	}
 
 	lval_del(a);
 	return x;
 }
 
-lval* builtin_len(lval* a) {
+lval* builtin_len(lenv* e, lval* a) {
 	LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'len' passed incorrect type")
 	lval* x = lval_long(a->cell[0]->count);
 	
@@ -166,14 +166,14 @@ lval* builtin_len(lval* a) {
 	return x;
 }
 
-lval* builtin_cons(lval* a) {
+lval* builtin_cons(lenv* e, lval* a) {
 	LASSERT(a, a->cell[0]->type != LVAL_QEXPR, "Function 'cons' passed incorrect type on first argument")
 	LASSERT(a, a->cell[1]->type == LVAL_QEXPR, "Function 'cons' passed incorrect type on second argument")
 	LASSERT(a, a->count == 2, "Function 'cons' passed an incorrect number of arguments")
 	
 	lval* x = lval_qexpr();
 	x = lval_add(x, lval_pop(a, 0));
-	x = lval_join(x, lval_pop(a, 0));
+	x = lval_join(e, x, lval_pop(a, 0));
 
 	lval_del(a);
 

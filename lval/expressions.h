@@ -1,6 +1,7 @@
 #ifndef LVAL_EXPRESSIONS
 #define LVAL_EXPRESSIONS
 #include "base.h"
+#include "environment.h"
 
 // Constructors for the SEXPR and QEXPR data type
 lval* lval_sexpr(void);
@@ -20,7 +21,7 @@ lval* lval_take(lval* v, int i);
 /* ----------------------------------------------------*/
 
 // Adds the ability to evalutate each expression in the group
-lval* lval_eval_sexpr(lval* v);
+lval* lval_eval_sexpr(lenv* e, lval* v);
 
 /*
     QEXPR Operations
@@ -32,15 +33,15 @@ lval* lval_eval_sexpr(lval* v);
     Len:  Takes a Q-Expression and returns the length of the Q-Expression
     Init: Takes a Q-Expression and returns a Q-Expression with only the last element removed   
 */
-lval* builtin_headn(lval* a, int n);
-lval* builtin_head(lval* a);
-lval* builtin_init(lval* a);
-lval* builtin_tail(lval* a);
-lval* builtin_list(lval* a);
-lval* builtin_eval(lval* a);
-lval* lval_join(lval* x, lval* y);
-lval* builtin_join(lval* a);
-lval* builtin_len(lval* a);
-lval* builtin_cons(lval* a);
+lval* builtin_headn(lenv* e, lval* a, int n);
+lval* builtin_head(lenv* e, lval* a);
+lval* builtin_init(lenv* e, lval* a);
+lval* builtin_tail(lenv* e, lval* a);
+lval* builtin_list(lenv* e, lval* a);
+lval* builtin_eval(lenv* e, lval* a);
+lval* lval_join(lenv* e, lval* x, lval* y);
+lval* builtin_join(lenv* e, lval* a);
+lval* builtin_len(lenv* e, lval* a);
+lval* builtin_cons(lenv* e, lval* a);
 
 #endif
