@@ -165,3 +165,18 @@ lval* builtin_len(lval* a) {
 	lval_del(a);
 	return x;
 }
+
+lval* builtin_cons(lval* a) {
+	LASSERT(a, a->cell[0]->type != LVAL_QEXPR, "Function 'cons' passed incorrect type on first argument")
+	LASSERT(a, a->cell[1]->type == LVAL_QEXPR, "Function 'cons' passed incorrect type on second argument")
+	LASSERT(a, a->count == 2, "Function 'cons' passed an incorrect number of arguments")
+	
+	lval* x = lval_qexpr();
+	x = lval_add(x, lval_pop(a, 0));
+	x = lval_join(x, lval_pop(a, 0));
+
+	lval_del(a);
+
+	return x;
+
+}

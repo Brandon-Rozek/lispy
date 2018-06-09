@@ -50,7 +50,6 @@ lval* lval_eval(lval* v) {
 	return v;
 }
 
-
 void lval_del(lval* v) {
 	switch (v->type) {
 		case LVAL_LONG: break;

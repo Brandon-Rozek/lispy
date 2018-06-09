@@ -170,6 +170,7 @@ lval* builtin(lval* a, char* func) {
 	if (strcmp("eval", func) == 0) { return builtin_eval(a); }
 	if (strcmp("len", func) == 0) { return builtin_len(a); }
 	if (strcmp("init", func) == 0) { return builtin_init(a); }
+	if (strcmp("cons", func) == 0) { return builtin_cons(a); }
 	if (strstr("+-/*^%", func)) { return builtin_op(a, func); }
 	if (strcmp("min", func) == 0) { return builtin_op(a, func); }
 	if (strcmp("max", func) == 0) { return builtin_op(a, func); }
