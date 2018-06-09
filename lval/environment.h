@@ -21,5 +21,7 @@ lval* lval_fun(lbuiltin func);
 void lenv_add_builtin(lenv* e, char* name, lbuiltin func);
 void lenv_add_builtins(lenv* e);
 
+lval* builtin_def(lenv* e, lval* a);
+
 
 #endif

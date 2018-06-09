@@ -93,4 +93,32 @@ void lenv_add_builtins(lenv* e) {
     lenv_add_builtin(e, "%", builtin_mod);
     lenv_add_builtin(e, "min", builtin_min);
     lenv_add_builtin(e, "max", builtin_max);
+    
+    lenv_add_builtin(e, "def", builtin_def);
+}
+
+lval* builtin_def(lenv* e, lval* a) {
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
+        "Function 'def' passed incorrect type")
+
+    // First argument is the symbol list
+    lval* syms = a->cell[0];
+
+    // Ensure all elements of the first list are symbols
+    for (int i = 0; i < syms->count; i++) {
+        LASSERT(a, syms->cell[i]->type == LVAL_SYM,
+            "Function 'def' cannot define non-symbol")
+    }
+
+    // Check correct number of symbols and values
+    LASSERT(a, syms->count == a->count - 1,
+        "Function 'def' cannot define incorrect number of values to symbols")
+
+    // Assign copies of values to symbols
+    for (int i = 0; i < syms->count; i++) {
+        lenv_put(e, syms->cell[i], a->cell[i + 1]);
+    }
+
+    lval_del(a);
+    return lval_sexpr();
 }

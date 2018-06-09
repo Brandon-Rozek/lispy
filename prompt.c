@@ -96,6 +96,8 @@ int main (int argc, char** argv) {
 		free(input);
 	}
 
+	lenv_del(e);
+
 	mpc_cleanup(8, Number, Long, Double, Symbol, Sexpr, Qexpr, Expr, Lispy);
 	return 0;
 }
