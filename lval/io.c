@@ -31,7 +31,13 @@ void flval_print(FILE* stream, lval* v) {
 
 		case LVAL_QEXPR: flval_expr_print(stream, v, '{', '}'); break;
 
-		case LVAL_FUN: fprintf(stream, "<function>"); break;
+		case LVAL_FUN: 
+			if (v->builtin) {
+				fprintf(stream, "<function>");
+			} else {
+				fprintf(stream, "(\\ "); flval_print(stream, v->formals);
+				fprintf(stream, " "); flval_print(stream, v->body); fprintf(stream, ")");
+			} break;
 	}
 }
 

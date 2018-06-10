@@ -22,7 +22,12 @@ struct lval {
 	// Error and symbols contain string data
 	char* err;
 	char* sym;
-	lbuiltin fun;
+
+	// Function
+	lbuiltin builtin;
+	lenv* env;
+	lval* formals;
+	lval* body;
 
 	// Count and pointer to a list of lval*
 	int count;

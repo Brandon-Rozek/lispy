@@ -22,6 +22,19 @@ void lenv_del(lenv* e) {
     free(e);
 }
 
+lenv* lenv_copy(lenv* e) {
+    lenv* n = malloc(sizeof(lenv));
+    n->count = e->count;
+    n->syms = malloc(sizeof(char*) * n->count);
+    n->vals = malloc(sizeof(lval*) * n->count);
+    for (int i = 0; i < e->count; i++) {
+        n->syms[i] = malloc(strlen(e->syms[i]) + 1);
+        strcpy(n->syms[i], e->syms[i]);
+        n->vals[i] = lval_copy(e->vals[i]);
+    }
+    return n;
+}
+
 lval* lenv_get(lenv* e, lval* k) {
     // Iterate over all items in environment
     for (int i = 0; i < e->count; i++) {
@@ -63,7 +76,7 @@ void lenv_put(lenv* e, lval* k, lval* v) {
 lval* lval_fun(lbuiltin func) {
     lval* v = malloc(sizeof(lval));
     v->type = LVAL_FUN;
-    v->fun = func;
+    v->builtin = func;
     return v;
 }
 
@@ -96,12 +109,11 @@ void lenv_add_builtins(lenv* e) {
     
     lenv_add_builtin(e, "def", builtin_def);
     lenv_add_builtin(e, "ls", builtin_ls);
+    lenv_add_builtin(e, "\\", builtin_lambda);
 }
 
 lval* builtin_def(lenv* e, lval* a) {
-    LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
-        "Function 'def' passed incorrect type. Got %s, expected %s",
-            ltype_name(a->cell[0]->type), ltype_name(LVAL_QEXPR))
+    LASSERT_TYPE("def", a, 0, LVAL_QEXPR)
 
     // First argument is the symbol list
     lval* syms = a->cell[0];
@@ -126,8 +138,8 @@ lval* builtin_def(lenv* e, lval* a) {
 }
 
 lval* builtin_ls(lenv* e, lval* a) {
-    LASSERT(a, a->count == 0, "Function 'ls' passed an incorrect number of arguments. Got %i, expected %i.", a->count, 0)
-    
+    LASSERT_NUM("ls", a, 0)
+
     lval* x = lval_qexpr();
     for (int i = 0; i < e->count; i++) {
         lval_add(x, lval_sym(e->syms[i]));
@@ -135,4 +147,41 @@ lval* builtin_ls(lenv* e, lval* a) {
 
     lval_del(a);
     return x;
+}
+
+lval* lval_lambda(lval* formals, lval* body) {
+    lval* v = malloc(sizeof(lval));
+    v->type = LVAL_FUN;
+
+    // Set builtin to null
+    v->builtin = NULL;
+
+    // Build new environment
+    v->env = lenv_new();
+
+    // Set formals and body
+    v->formals = formals;
+    v->body = body;
+    return v;
+}
+
+lval* builtin_lambda(lenv* e, lval* a) {
+    // Check for two arguments each of which are Q-Expressions
+    LASSERT_NUM("\\", a, 2)
+    LASSERT_TYPE("\\", a, 0, LVAL_QEXPR)
+    LASSERT_TYPE("\\", a, 1, LVAL_QEXPR)
+
+    // Check first Q-expression contains only symbols
+    for (int i = 0; i < a->cell[0]->count; i++) {
+        LASSERT(a, (a->cell[0]->cell[i]->type == LVAL_SYM),
+            "Cannot define non-symbol. Got %s, expected %s.",
+            ltype_name(a->cell[0]->cell[i]->type), ltype_name(LVAL_SYM))
+    }
+
+    // Pop first two arguments and pass them to lval_lambda
+    lval* formals = lval_pop(a, 0);
+    lval* body = lval_pop(a, 0);
+    lval_del(a);
+
+    return lval_lambda(formals, body);
 }

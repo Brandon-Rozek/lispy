@@ -62,7 +62,13 @@ void lval_del(lval* v) {
 	switch (v->type) {
 		case LVAL_LONG: break;
 		case LVAL_DOUBLE: break;
-		case LVAL_FUN: break;
+		case LVAL_FUN: 
+			if (!v->builtin) {
+				lenv_del(v->env);
+				lval_del(v->formals);
+				lval_del(v->body);
+			}
+			break;
 
 		// Free the string data
 		case LVAL_ERR: free(v->err); break;
@@ -92,7 +98,16 @@ lval* lval_copy(lval* v) {
 		// Copy numbers and functions directly
 		case LVAL_LONG: x->data.num = v->data.num; break;
 		case LVAL_DOUBLE: x->data.dec = v->data.dec; break;
-		case LVAL_FUN: x->fun = v->fun; break;
+		case LVAL_FUN: 
+			if (v->builtin) {
+				x->builtin = v->builtin;
+			} else {
+				x->builtin = NULL;
+				x->env = lenv_copy(v->env);
+				x->formals = lval_copy(v->formals);
+				x->body = lval_copy(v->body);
+			}
+		 	break;
 
 		// Copy strings using malloc and strcpy
 		case LVAL_ERR:

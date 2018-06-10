@@ -23,6 +23,7 @@ void lenv_add_builtins(lenv* e);
 
 lval* builtin_def(lenv* e, lval* a);
 lval* builtin_ls(lenv* e, lval* a);
+lval* builtin_lambda(lenv* e, lval* a);
 
 
 #endif
