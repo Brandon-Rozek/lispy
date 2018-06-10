@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "environment.h"
 #include "io.h"
 
 void flval_expr_print(FILE* stream, lval* v, char open, char close) {

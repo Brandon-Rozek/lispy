@@ -33,7 +33,7 @@ lval* lenv_get(lenv* e, lval* k) {
     }
 
     // If no symbol found return error
-    return lval_err("unbounded symbol!");
+    return lval_err("Unbounded symbol %s", k->sym);
 }
 
 void lenv_put(lenv* e, lval* k, lval* v) {
@@ -95,11 +95,13 @@ void lenv_add_builtins(lenv* e) {
     lenv_add_builtin(e, "max", builtin_max);
     
     lenv_add_builtin(e, "def", builtin_def);
+    lenv_add_builtin(e, "ls", builtin_ls);
 }
 
 lval* builtin_def(lenv* e, lval* a) {
     LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
-        "Function 'def' passed incorrect type")
+        "Function 'def' passed incorrect type. Got %s, expected %s",
+            ltype_name(a->cell[0]->type), ltype_name(LVAL_QEXPR))
 
     // First argument is the symbol list
     lval* syms = a->cell[0];
@@ -112,7 +114,7 @@ lval* builtin_def(lenv* e, lval* a) {
 
     // Check correct number of symbols and values
     LASSERT(a, syms->count == a->count - 1,
-        "Function 'def' cannot define incorrect number of values to symbols")
+        "Function 'def' cannot define incorrect number of values to symbols. Left side %i, right side %i", syms->count, a->count - 1)
 
     // Assign copies of values to symbols
     for (int i = 0; i < syms->count; i++) {

@@ -121,8 +121,10 @@ lval* builtin_op(lenv* e, lval* a, char* op) {
 	// Ensure all arguments are numbers
 	for (int i = 0; i < a->count; i++) {
 		if (a->cell[i]->type != LVAL_LONG && a->cell[i]->type != LVAL_DOUBLE) {
+			lval* x = lval_err("Function '%s' passed incorrect type for argument %i. Got %s, expected %s or %s.", 
+				op, i, ltype_name(a->cell[i]->type), ltype_name(LVAL_LONG), ltype_name(LVAL_DOUBLE)); 
 			lval_del(a);
-			return lval_err("Cannot run operation on non-number");
+			return x;
 		}
 	}
 
@@ -171,5 +173,5 @@ lval* builtin(lenv* e, lval* a, char* func) {
 	if (strcmp("max", func) == 0) { return builtin_op(e, a, func); }
 
 	lval_del(a);
-	return lval_err("Unknown Function!");
+	return lval_err("Unknown Function %s", func);
 }
