@@ -83,9 +83,13 @@ int main (int argc, char** argv) {
 			// lval result = eval(r.output);
 			lval* result = lval_eval(e, lval_read(r.output));
 			lval_println(result);
-			lval_del(result);
 			// mpc_ast_print(r.output);
 			mpc_ast_delete(r.output);
+			if ((result->type == LVAL_SEXPR && result->count > 0 && strcmp(result->cell[0]->sym, "exit") == 0) ||
+				(result->type == LVAL_SYM && strcmp(result->sym, "exit") == 0))
+				{ lval_del(result); free(input); break; }
+			lval_del(result);
+
 		} else {
 			// Otherwise print the error
 			mpc_err_print(r.error);
