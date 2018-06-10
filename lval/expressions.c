@@ -56,7 +56,7 @@ lval* lval_take(lval* v, int i) {
 
 lval* lval_eval_sexpr(lenv* e, lval* v) {
 	// No argument functions
-	if (v->count == 1) {
+	if (v->count == 1 && v->cell[0]->type == LVAL_SYM) {
 		lval* x = lenv_get(e, v->cell[0]);
 		if (x->type == LVAL_FUN) {
 			lval_del(x);
