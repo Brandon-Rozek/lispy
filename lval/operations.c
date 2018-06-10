@@ -3,6 +3,7 @@
 #include "numbers.h"
 #include "expressions.h"
 #include "operations.h"
+#include "environment.h"
 
 lval* builtin_op(lenv* e, lval* v, char* sym);
 

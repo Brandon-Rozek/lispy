@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "expressions.h"
+#include "environment.h"
 #include "numbers.h"
 #include "operations.h"
 #include "error.h"
@@ -85,17 +86,20 @@ lval* lval_eval_sexpr(lenv* e, lval* v) {
 	if (v->count == 0) { return v; }
 
 	// Single expression
-	if (v->count == 1) { return lval_take(v, 0); }
+	if (v->count == 1) { return lval_eval(e, lval_take(v, 0)); }
 
 	// Ensure first element is a symbol otherwise
 	lval* f = lval_pop(v, 0);
 	if (f->type != LVAL_FUN) {
+		lval* err = lval_err(
+			"S-Experssion starts with incorrect type. "
+			"Got %s, Expected %s.",
+			ltype_name(f->type), ltype_name(LVAL_FUN));
 		lval_del(f); lval_del(v);
-		return lval_err("S-expression does not start with function");
+		return err;
 	}
-
 	// If so call the function and return result
-	lval* result = f->builtin(e, v);
+	lval* result = lval_call(e, f, v);
 	lval_del(f);
 	return result;
 }
