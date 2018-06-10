@@ -124,3 +124,15 @@ lval* builtin_def(lenv* e, lval* a) {
     lval_del(a);
     return lval_sexpr();
 }
+
+lval* builtin_ls(lenv* e, lval* a) {
+    LASSERT(a, a->count == 0, "Function 'ls' passed an incorrect number of arguments. Got %i, expected %i.", a->count, 0)
+    
+    lval* x = lval_qexpr();
+    for (int i = 0; i < e->count; i++) {
+        lval_add(x, lval_sym(e->syms[i]));
+    }
+
+    lval_del(a);
+    return x;
+}

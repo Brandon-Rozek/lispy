@@ -55,6 +55,19 @@ lval* lval_take(lval* v, int i) {
 }
 
 lval* lval_eval_sexpr(lenv* e, lval* v) {
+	// No argument functions
+	if (v->count == 1) {
+		lval* x = lenv_get(e, v->cell[0]);
+		if (x->type == LVAL_FUN) {
+			lval_del(x);
+			if (strcmp(v->cell[0]->sym, "ls") == 0) {
+				lval_del(v);
+				return builtin_ls(e, lval_sexpr());
+			}
+		}
+
+		return v;
+	}
 	// Evaluate children
 	for (int i = 0; i < v->count; i++) {
 		v->cell[i] = lval_eval(e, v->cell[i]);
