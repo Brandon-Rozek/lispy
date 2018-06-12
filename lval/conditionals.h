@@ -15,5 +15,8 @@ lval* builtin_cmp(lenv* e, lval* a, char* op);
 lval* builtin_eq(lenv* e, lval* a);
 lval* builtin_ne(lenv* e, lval* a);
 
+lval* builtin_if(lenv* e, lval* a);
+lval* builtin_and(lenv* e, lval* a);
+lval* builtin_or(lenv* e, lval* a);
 
 #endif
