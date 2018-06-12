@@ -16,5 +16,7 @@
 #include "lval/io.h"
 // Add environments, variables, and functions
 #include "lval/environment.h"
+// Add conditional statements
+#include "lval/conditionals.h"
 
 #endif

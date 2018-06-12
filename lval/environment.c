@@ -3,6 +3,7 @@
 #include "error.h"
 #include "expressions.h"
 #include "operations.h"
+#include "conditionals.h"
 
 lenv* lenv_new(void) {
     lenv* e = (lenv*) malloc(sizeof(lenv));
@@ -126,6 +127,15 @@ void lenv_add_builtins(lenv* e) {
     lenv_add_builtin(e, "=", builtin_put);
     lenv_add_builtin(e, "ls", builtin_ls);
     lenv_add_builtin(e, "\\", builtin_lambda);
+
+    // Conditional functions
+    lenv_add_builtin(e, "<", builtin_lt);
+    lenv_add_builtin(e, ">", builtin_gt);
+    lenv_add_builtin(e, "<=", builtin_le);
+    lenv_add_builtin(e, ">=", builtin_ge);
+    lenv_add_builtin(e, "==", builtin_eq);
+    lenv_add_builtin(e, "!=", builtin_ne);
+
 }
 
 lval* builtin_ls(lenv* e, lval* a) {

@@ -1,5 +1,7 @@
-run: prompt.c loperations.o lnumbers.o lexpressions.o lio.o lerror.o lenvironment.o mpc.o
-	cc -std=c99 -Wall prompt.c loperations.o lnumbers.o lexpressions.o lio.o lerror.o lenvironment.o mpc.o -ledit -lm -o prompt
+run: prompt.c lconditionals.o loperations.o lnumbers.o lexpressions.o lio.o lerror.o lenvironment.o mpc.o
+	cc -std=c99 -Wall prompt.c lconditionals.o loperations.o lnumbers.o lexpressions.o lio.o lerror.o lenvironment.o mpc.o -ledit -lm -o prompt
+lconditionals.o: lval/conditionals.c lval/conditionals.h
+	cc -std=c99 -Wall -c lval/conditionals.c -o lconditionals.o
 loperations.o: lval/operations.c lval/operations.h
 	cc -std=c99 -Wall -c lval/operations.c -o loperations.o
 lnumbers.o: lval/numbers.c lval/numbers.h
