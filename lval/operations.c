@@ -10,8 +10,8 @@ lval* builtin_op(lenv* e, lval* v, char* sym);
 lval* lval_sym(char* s) {
 	lval* v = (lval *) malloc(sizeof(lval));
 	v->type = LVAL_SYM;
-	v->sym = (char *) malloc(strlen(s) + 1);
-	strcpy(v->sym, s);
+	v->data.sym = (char *) malloc(strlen(s) + 1);
+	strcpy(v->data.sym, s);
 	return v;
 }
 
@@ -72,8 +72,8 @@ void lval_del(lval* v) {
 			break;
 
 		// Free the string data
-		case LVAL_ERR: free(v->err); break;
-		case LVAL_SYM: free(v->sym); break;
+		case LVAL_ERR: free(v->data.err); break;
+		case LVAL_SYM: free(v->data.sym); break;
 
 		// Delete all elements inside SEXPR or QEXPR
 		case LVAL_QEXPR:
@@ -112,11 +112,11 @@ lval* lval_copy(lval* v) {
 
 		// Copy strings using malloc and strcpy
 		case LVAL_ERR:
-			x->err = (char*) malloc(strlen(v->err) + 1);
-			strcpy(x->err, v->err); break;
+			x->data.err = (char*) malloc(strlen(v->data.err) + 1);
+			strcpy(x->data.err, v->data.err); break;
 		case LVAL_SYM:
-			x->sym = (char*) malloc(strlen(v->sym) + 1);
-			strcpy(x->sym, v->sym); break;
+			x->data.sym = (char*) malloc(strlen(v->data.sym) + 1);
+			strcpy(x->data.sym, v->data.sym); break;
 		
 		// Copy lists by copying each sub-expression
 		case LVAL_SEXPR:

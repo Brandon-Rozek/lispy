@@ -58,11 +58,11 @@ lval* lval_take(lval* v, int i) {
 lval* lval_eval_sexpr(lenv* e, lval* v) {
 	// No argument functions
 	if (v->count == 1 && v->cell[0]->type == LVAL_SYM) {
-		if (strcmp(v->cell[0]->sym, "exit") == 0) { return v; }
+		if (strcmp(v->cell[0]->data.sym, "exit") == 0) { return v; }
 		lval* x = lenv_get(e, v->cell[0]);
 		if (x->type == LVAL_FUN) {
 			lval_del(x);
-			if (strcmp(v->cell[0]->sym, "ls") == 0) {
+			if (strcmp(v->cell[0]->data.sym, "ls") == 0) {
 				lval_del(v);
 				return builtin_ls(e, lval_sexpr());
 			}

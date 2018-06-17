@@ -62,8 +62,8 @@ int lval_eq(lval* x, lval* y) {
         case LVAL_DOUBLE: return (x->data.dec == y->data.dec);
 
         // Compare string values
-        case LVAL_ERR: return (strcmp(x->err, y->err) == 0);
-        case LVAL_SYM: return (strcmp(x->sym, y->sym) == 0);
+        case LVAL_ERR: return (strcmp(x->data.err, y->data.err) == 0);
+        case LVAL_SYM: return (strcmp(x->data.sym, y->data.sym) == 0);
 
         // If builtin compare, otherwise compare formals and body
         case LVAL_FUN:

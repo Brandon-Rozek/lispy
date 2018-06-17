@@ -23,9 +23,9 @@ void flval_print(FILE* stream, lval* v) {
 		
 		case LVAL_DOUBLE: fprintf(stream, "%lf", v->data.dec); break;
 
-		case LVAL_ERR: fprintf(stream, "Error: %s", v->err); break;
+		case LVAL_ERR: fprintf(stream, "Error: %s", v->data.err); break;
 
-		case LVAL_SYM: fprintf(stream, "%s", v->sym); break;
+		case LVAL_SYM: fprintf(stream, "%s", v->data.sym); break;
 
 		case LVAL_SEXPR: flval_expr_print(stream, v, '(', ')'); break;
 

@@ -13,13 +13,13 @@ lval* lval_err(char* fmt, ...) {
 	va_start(va, fmt);
 
 	// Allocate 512 bytes of space	
-	v->err = (char *) malloc(512);
+	v->data.err = (char *) malloc(512);
 
 	//printf the error string with a maximum of 511 characters
-	vsnprintf(v->err, 511, fmt, va);
+	vsnprintf(v->data.err, 511, fmt, va);
 
 	// Reallocate to the number of actual bytes
-	v->err = realloc(v->err, strlen(v->err) + 1);
+	v->data.err = realloc(v->data.err, strlen(v->data.err) + 1);
 
 	// Cleanup our va list
 	va_end(va);

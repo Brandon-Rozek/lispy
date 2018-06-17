@@ -43,7 +43,7 @@ lval* lenv_get(lenv* e, lval* k) {
     for (int i = 0; i < e->count; i++) {
         // Check if the stored string matches the symbol string
         // If it does, return a copy of hte value
-        if (strcmp(e->syms[i], k->sym) == 0) {
+        if (strcmp(e->syms[i], k->data.sym) == 0) {
             return lval_copy(e->vals[i]);
         }
     }
@@ -54,7 +54,7 @@ lval* lenv_get(lenv* e, lval* k) {
     }
 
     // If no symbol found and no parent, return error
-    return lval_err("Unbounded symbol %s", k->sym);
+    return lval_err("Unbounded symbol %s", k->data.sym);
 }
 
 void lenv_put(lenv* e, lval* k, lval* v) {
@@ -63,7 +63,7 @@ void lenv_put(lenv* e, lval* k, lval* v) {
     for (int i = 0; i < e->count; i++) {
         // If a variable is found, delete the item at that position
         // Then replace it with the data provided by the user
-        if (strcmp(e->syms[i], k->sym) == 0) {
+        if (strcmp(e->syms[i], k->data.sym) == 0) {
             lval_del(e->vals[i]);
             e->vals[i] = lval_copy(v);
             return;
@@ -77,8 +77,8 @@ void lenv_put(lenv* e, lval* k, lval* v) {
 
     // Copy contents of lval and symbol string
     e->vals[e->count - 1] = lval_copy(v);
-    e->syms[e->count - 1] = (char*) malloc(strlen(k->sym) + 1);
-    strcpy(e->syms[e->count - 1], k->sym);
+    e->syms[e->count - 1] = (char*) malloc(strlen(k->data.sym) + 1);
+    strcpy(e->syms[e->count - 1], k->data.sym);
 }
 
 void lenv_def(lenv* e, lval* k, lval* v) {
@@ -252,7 +252,7 @@ lval* lval_call(lenv* e, lval* f, lval* a) {
         // Pop the first symbol from the formals 
         lval* sym = lval_pop(f->formals, 0);
 
-        if (strcmp(sym->sym, "&") == 0) {
+        if (strcmp(sym->data.sym, "&") == 0) {
             // Ensure '&' is followed by another symbol
             if (f->formals->count != 1) {
                 lval_del(a);
@@ -282,7 +282,7 @@ lval* lval_call(lenv* e, lval* f, lval* a) {
 
     // If '&' remains in formal list bind to empty list
     if (f->formals->count > 0 &&
-        strcmp(f->formals->cell[0]->sym, "&") == 0) {
+        strcmp(f->formals->cell[0]->data.sym, "&") == 0) {
             // Check to ensure that & is no passed invalidly
             if (f->formals->count != 2) {
                 return lval_err("Function format invalid."
